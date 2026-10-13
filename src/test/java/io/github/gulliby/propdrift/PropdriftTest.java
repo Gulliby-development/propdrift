@@ -19,9 +19,15 @@ class PropdriftTest {
 
     @Test
     void validatesArgumentsInTheSpecifiedOrder() {
-        assertRun(0, "Usage: propdrift DIR\n", "", "--help");
+        assertRun(0, "Usage: propdrift [--format text|json] DIR\n", "", "--help");
         assertRun(2, "", "propdrift: directory required\n");
         assertRun(2, "", "propdrift: unknown option \"--x\"\n", "--x", "a");
+        assertRun(2, "", "propdrift: --format requires a value\n", "--format");
+        assertRun(2, "", "propdrift: --format requires a value\n", "--format", "--x", "a");
+        assertRun(2, "", "propdrift: invalid --format \"xml\"\n", "--format=xml", "a");
+        assertRun(2, "", "propdrift: invalid --format \"xml\"\n", "--format", "xml", "a");
+        assertRun(2, "", "propdrift: unknown option \"--x\"\n", "--x", "--format=xml", "a", "b");
+        assertRun(2, "", "propdrift: invalid --format \"xml\"\n", "--format=xml", "a", "b");
         assertRun(2, "", "propdrift: exactly one directory required\n", "a", "b");
         assertRun(2, "", "propdrift: " + tempDir.resolve("missing") + ": not a directory\n",
                 tempDir.resolve("missing").toString());

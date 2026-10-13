@@ -30,17 +30,17 @@ mvn -B -q verify
 
 ## Usage
 
-Pass exactly one directory containing properties files (replace `path/to/bundles` with your resource directory):
+Run propdrift on exactly one directory containing properties files; optionally select `text` (the default) or `json` output. Replace `path/to/bundles` with your resource directory:
 
 ```text
-java -cp target/classes io.github.gulliby.propdrift.Main path/to/bundles
+java -cp target/classes io.github.gulliby.propdrift.Main [--format text|json] path/to/bundles
 ```
 
 Use `--help` to print the usage line:
 
 ```text
 java -cp target/classes io.github.gulliby.propdrift.Main --help
-Usage: propdrift DIR
+Usage: propdrift [--format text|json] DIR
 ```
 
 The checker reads regular `.properties` files directly in the directory; it does not recurse into subdirectories. File names are case-sensitive. Locale suffixes such as `_de` and `_pt_BR` associate a file with its base bundle (for example, `messages_de.properties` belongs to `messages.properties`).
@@ -50,7 +50,22 @@ The checker reads regular `.properties` files directly in the directory; it does
 | Option | Description |
 | --- | --- |
 | `DIR` | The directory to check (exactly one). |
+| `--format text\|json` | Output format: `text` (default) or `json`. Also `--format=json`. |
 | `--help` | Print the usage line. |
+
+### JSON output
+
+Run JSON output on the worked example directory with:
+
+```text
+java -cp target/classes io.github.gulliby.propdrift.Main --format json ex
+```
+
+```json
+{"findings":[{"path":"ex/messages_de.properties","line":1,"rule":"PR002","message":"missing key bye"},{"path":"ex/messages_de.properties","line":2,"rule":"PR004","message":"placeholders differ for files: base {0},{1}, locale {0}"},{"path":"ex/messages_de.properties","line":3,"rule":"PR003","message":"extra key extra"},{"path":"ex/messages_de.properties","line":4,"rule":"PR005","message":"duplicate key hello (first defined on line 1)"},{"path":"ex/orphan_es.properties","line":1,"rule":"PR001","message":"missing base file for orphan"}],"problems":5,"files":2}
+```
+
+JSON strings use standard escaping for quotes, backslashes, and control characters; non-ASCII characters are preserved. `problems` is the number of findings, and `files` is the number of distinct files with findings.
 
 ## Rules
 
@@ -62,7 +77,7 @@ The checker reads regular `.properties` files directly in the directory; it does
 | PR004 | A shared key has different numbered-placeholder sets in the base and locale values. |
 | PR005 | A key is defined more than once in the same file; the later definition is ignored by the other checks. |
 
-Placeholder sets are compared by distinct integer value, so `{00}` is equivalent to `{0}`; a placeholder is a brace-enclosed run of one to nine ASCII digits. Findings are sorted by path, line, and rule. A successful check prints `ok`; otherwise, findings are followed by a problem and affected-file count.
+Placeholder sets are compared by distinct integer value, so `{00}` is equivalent to `{0}`; a placeholder is a brace-enclosed run of one to nine ASCII digits. Findings are sorted by path, line, and rule. A successful check prints `ok` (or an empty `findings` array with `--format json`); otherwise, findings are followed by a problem and affected-file count.
 
 ## Supported properties syntax
 
