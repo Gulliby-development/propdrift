@@ -19,7 +19,7 @@ class PropdriftTest {
 
     @Test
     void validatesArgumentsInTheSpecifiedOrder() {
-        assertRun(0, "Usage: propdrift [--format text|json] DIR\n", "", "--help");
+        assertRun(0, "Usage: propdrift [--format text|json] [--baseline FILE] [--write-baseline FILE] DIR\n", "", "--help");
         assertRun(2, "", "propdrift: directory required\n");
         assertRun(2, "", "propdrift: unknown option \"--x\"\n", "--x", "a");
         assertRun(2, "", "propdrift: --format requires a value\n", "--format");

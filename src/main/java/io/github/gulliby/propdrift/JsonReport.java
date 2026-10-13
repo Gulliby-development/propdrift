@@ -16,6 +16,26 @@ public final class JsonReport {
      * @return a compact JSON report
      */
     public static String render(List<Finding> findings, int files) {
+        return render(findings, files, false, 0);
+    }
+
+    /**
+     * Renders findings as one compact JSON object with a suppressed count and no trailing line feed.
+     *
+     * @param findings findings in output order
+     * @param files number of distinct files represented by the findings
+     * @param suppressed findings removed by a baseline
+     * @return a compact JSON report
+     * @throws IllegalArgumentException if {@code suppressed} is negative
+     */
+    public static String render(List<Finding> findings, int files, int suppressed) {
+        if (suppressed < 0) {
+            throw new IllegalArgumentException("suppressed must be non-negative");
+        }
+        return render(findings, files, true, suppressed);
+    }
+
+    private static String render(List<Finding> findings, int files, boolean includeSuppressed, int suppressed) {
         Objects.requireNonNull(findings, "findings");
 
         StringBuilder json = new StringBuilder();
@@ -35,7 +55,11 @@ public final class JsonReport {
             json.append('}');
         }
         json.append("],\"problems\":").append(findings.size());
-        json.append(",\"files\":").append(files).append('}');
+        json.append(",\"files\":").append(files);
+        if (includeSuppressed) {
+            json.append(",\"suppressed\":").append(suppressed);
+        }
+        json.append('}');
         return json.toString();
     }
 

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.CharacterCodingException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryIteratorException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
@@ -34,7 +35,7 @@ public final class Cli {
         Objects.requireNonNull(err, "err");
 
         if (args.length == 1 && "--help".equals(args[0])) {
-            out.print("Usage: propdrift [--format text|json] DIR\n");
+            out.print("Usage: propdrift [--format text|json] [--baseline FILE] [--write-baseline FILE] DIR\n");
             return 0;
         }
         if (args.length == 0) {
@@ -42,6 +43,8 @@ public final class Cli {
         }
 
         String format = "text";
+        String baselineFile = null;
+        String writeBaselineFile = null;
         List<String> directories = new ArrayList<>();
         for (int index = 0; index < args.length; index++) {
             String arg = args[index];
@@ -52,6 +55,26 @@ public final class Cli {
                 format = args[++index];
             } else if (arg.startsWith("--format=")) {
                 format = arg.substring("--format=".length());
+            } else if ("--baseline".equals(arg)) {
+                if (index + 1 >= args.length || args[index + 1].startsWith("-")) {
+                    return reportError(err, "propdrift: --baseline requires a value");
+                }
+                baselineFile = args[++index];
+            } else if (arg.startsWith("--baseline=")) {
+                baselineFile = arg.substring("--baseline=".length());
+                if (baselineFile.isEmpty()) {
+                    return reportError(err, "propdrift: --baseline requires a value");
+                }
+            } else if ("--write-baseline".equals(arg)) {
+                if (index + 1 >= args.length || args[index + 1].startsWith("-")) {
+                    return reportError(err, "propdrift: --write-baseline requires a value");
+                }
+                writeBaselineFile = args[++index];
+            } else if (arg.startsWith("--write-baseline=")) {
+                writeBaselineFile = arg.substring("--write-baseline=".length());
+                if (writeBaselineFile.isEmpty()) {
+                    return reportError(err, "propdrift: --write-baseline requires a value");
+                }
             } else if (arg.startsWith("-")) {
                 return reportError(err, "propdrift: unknown option \"" + arg + "\"");
             } else {
@@ -117,32 +140,80 @@ public final class Cli {
                 .thenComparingInt(Finding::line)
                 .thenComparing(Finding::rule));
 
-        if ("json".equals(format)) {
-            Set<String> filesWithFindings = new HashSet<>();
-            for (Finding finding : findings) {
-                filesWithFindings.add(finding.displayPath());
+        int suppressed = 0;
+        List<Finding> reportedFindings = findings;
+        if (baselineFile != null) {
+            Baseline baseline;
+            byte[] baselineBytes;
+            try {
+                baselineBytes = Files.readAllBytes(Path.of(baselineFile));
+            } catch (InvalidPathException | IOException | SecurityException exception) {
+                return reportError(err, "propdrift: " + baselineFile + ": cannot read baseline");
             }
-            out.print(JsonReport.render(findings, filesWithFindings.size()));
-            out.print('\n');
-            return findings.isEmpty() ? 0 : 1;
+            try {
+                baseline = Baseline.parse(baselineBytes);
+            } catch (CharacterCodingException exception) {
+                return reportError(err, "propdrift: " + baselineFile + ": invalid UTF-8");
+            } catch (Baseline.BaselineException exception) {
+                if (exception.line() == 0) {
+                    return reportError(err, "propdrift: " + baselineFile + ": " + exception.getMessage());
+                }
+                return reportError(err, "propdrift: " + baselineFile + ":" + exception.line()
+                        + ": " + exception.getMessage());
+            }
+            Baseline.Applied applied = baseline.apply(findings);
+            reportedFindings = applied.remaining();
+            suppressed = applied.suppressed();
         }
 
-        if (findings.isEmpty()) {
-            out.print("ok\n");
+        if (writeBaselineFile != null) {
+            String baselineText = Baseline.render(findings);
+            try {
+                Files.write(Path.of(writeBaselineFile), baselineText.getBytes(StandardCharsets.UTF_8));
+            } catch (InvalidPathException | IOException | SecurityException exception) {
+                return reportError(err, "propdrift: " + writeBaselineFile + ": cannot write baseline");
+            }
+            out.print("wrote " + findings.size() + (findings.size() == 1 ? " finding to " : " findings to ")
+                    + writeBaselineFile + "\n");
             return 0;
         }
 
         Set<String> filesWithFindings = new HashSet<>();
-        for (Finding finding : findings) {
-            out.print(finding.format());
-            out.print('\n');
+        for (Finding finding : reportedFindings) {
             filesWithFindings.add(finding.displayPath());
         }
+        if ("json".equals(format)) {
+            if (baselineFile == null) {
+                out.print(JsonReport.render(reportedFindings, filesWithFindings.size()));
+            } else {
+                out.print(JsonReport.render(reportedFindings, filesWithFindings.size(), suppressed));
+            }
+            out.print('\n');
+            return reportedFindings.isEmpty() ? 0 : 1;
+        }
 
-        int problemCount = findings.size();
+        if (reportedFindings.isEmpty()) {
+            if (baselineFile == null) {
+                out.print("ok\n");
+            } else {
+                out.print("ok (" + suppressed + " suppressed by baseline)\n");
+            }
+            return 0;
+        }
+
+        for (Finding finding : reportedFindings) {
+            out.print(finding.format());
+            out.print('\n');
+        }
+
+        int problemCount = reportedFindings.size();
         int fileCount = filesWithFindings.size();
-        out.print(problemCount + (problemCount == 1 ? " problem in " : " problems in ")
-                + fileCount + (fileCount == 1 ? " file\n" : " files\n"));
+        String summary = problemCount + (problemCount == 1 ? " problem in " : " problems in ")
+                + fileCount + (fileCount == 1 ? " file" : " files");
+        if (baselineFile != null) {
+            summary += " (" + suppressed + " suppressed by baseline)";
+        }
+        out.print(summary + "\n");
         return 1;
     }
 
