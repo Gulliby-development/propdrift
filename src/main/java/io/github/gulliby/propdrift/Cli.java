@@ -34,22 +34,41 @@ public final class Cli {
         Objects.requireNonNull(err, "err");
 
         if (args.length == 1 && "--help".equals(args[0])) {
-            out.print("Usage: propdrift DIR\n");
+            out.print("Usage: propdrift [--format text|json] DIR\n");
             return 0;
         }
         if (args.length == 0) {
             return reportError(err, "propdrift: directory required");
         }
-        for (String arg : args) {
-            if (arg.startsWith("-")) {
+
+        String format = "text";
+        List<String> directories = new ArrayList<>();
+        for (int index = 0; index < args.length; index++) {
+            String arg = args[index];
+            if ("--format".equals(arg)) {
+                if (index + 1 >= args.length || args[index + 1].startsWith("-")) {
+                    return reportError(err, "propdrift: --format requires a value");
+                }
+                format = args[++index];
+            } else if (arg.startsWith("--format=")) {
+                format = arg.substring("--format=".length());
+            } else if (arg.startsWith("-")) {
                 return reportError(err, "propdrift: unknown option \"" + arg + "\"");
+            } else {
+                directories.add(arg);
             }
         }
-        if (args.length >= 2) {
+        if (!"text".equals(format) && !"json".equals(format)) {
+            return reportError(err, "propdrift: invalid --format \"" + format + "\"");
+        }
+        if (directories.isEmpty()) {
+            return reportError(err, "propdrift: directory required");
+        }
+        if (directories.size() >= 2) {
             return reportError(err, "propdrift: exactly one directory required");
         }
 
-        String dir = args[0];
+        String dir = directories.get(0);
         Path directory;
         try {
             directory = Path.of(dir);
@@ -97,6 +116,16 @@ public final class Cli {
         findings.sort(Comparator.comparing(Finding::displayPath)
                 .thenComparingInt(Finding::line)
                 .thenComparing(Finding::rule));
+
+        if ("json".equals(format)) {
+            Set<String> filesWithFindings = new HashSet<>();
+            for (Finding finding : findings) {
+                filesWithFindings.add(finding.displayPath());
+            }
+            out.print(JsonReport.render(findings, filesWithFindings.size()));
+            out.print('\n');
+            return findings.isEmpty() ? 0 : 1;
+        }
 
         if (findings.isEmpty()) {
             out.print("ok\n");
