@@ -33,14 +33,14 @@ mvn -B -q verify
 Run propdrift on exactly one directory containing properties files; optionally select `text` (the default) or `json` output. Replace `path/to/bundles` with your resource directory:
 
 ```text
-java -cp target/classes io.github.gulliby.propdrift.Main [--format text|json] path/to/bundles
+java -cp target/classes io.github.gulliby.propdrift.Main [--format text|json] [--baseline FILE] [--write-baseline FILE] path/to/bundles
 ```
 
 Use `--help` to print the usage line:
 
 ```text
 java -cp target/classes io.github.gulliby.propdrift.Main --help
-Usage: propdrift [--format text|json] DIR
+Usage: propdrift [--format text|json] [--baseline FILE] [--write-baseline FILE] DIR
 ```
 
 The checker reads regular `.properties` files directly in the directory; it does not recurse into subdirectories. File names are case-sensitive. Locale suffixes such as `_de` and `_pt_BR` associate a file with its base bundle (for example, `messages_de.properties` belongs to `messages.properties`).
@@ -51,6 +51,8 @@ The checker reads regular `.properties` files directly in the directory; it does
 | --- | --- |
 | `DIR` | The directory to check (exactly one). |
 | `--format text\|json` | Output format: `text` (default) or `json`. Also `--format=json`. |
+| `--baseline FILE` | Do not report the findings listed in the baseline file `FILE`. Also `--baseline=FILE`. |
+| `--write-baseline FILE` | Write all current findings to `FILE` as a version 2 baseline and exit 0. Also `--write-baseline=FILE`. |
 | `--help` | Print the usage line. |
 
 ### JSON output
@@ -66,6 +68,66 @@ java -cp target/classes io.github.gulliby.propdrift.Main --format json ex
 ```
 
 JSON strings use standard escaping for quotes, backslashes, and control characters; non-ASCII characters are preserved. `problems` is the number of findings, and `files` is the number of distinct files with findings.
+
+### Baselines
+
+Baselines let you adopt propdrift when a project already has findings. Write the current findings to a version 2 baseline with:
+
+```text
+java -cp target/classes io.github.gulliby.propdrift.Main --write-baseline ex.baseline ex
+wrote 5 findings to ex.baseline
+```
+
+The resulting `ex.baseline` contains one entry per finding. Fields are separated by real tab characters:
+
+```text
+# propdrift baseline v2
+PR002	messages_de.properties	missing key bye
+PR003	messages_de.properties	extra key extra
+PR004	messages_de.properties	placeholders differ for files: base {0},{1}, locale {0}
+PR005	messages_de.properties	duplicate key hello (first defined on line 1)
+PR001	orphan_es.properties	missing base file for orphan
+```
+
+Use it to report only new findings:
+
+```text
+java -cp target/classes io.github.gulliby.propdrift.Main --baseline ex.baseline ex
+ok (5 suppressed by baseline)
+```
+
+A finding matches an entry by file name, rule, and message, not by directory or line number. For PR005, the message includes the line where the key was first defined, so moving that definition can change whether it matches. Each entry suppresses one finding; duplicate findings need duplicate entries, and unused entries are ignored.
+
+A saved plain-text report from an earlier run is also accepted as a version 1 baseline. For example, save one with `propdrift ex > old.txt`; from this checkout, the equivalent command is:
+
+```text
+java -cp target/classes io.github.gulliby.propdrift.Main ex > old.txt
+```
+
+To convert it to version 2, read and write the same file:
+
+```text
+java -cp target/classes io.github.gulliby.propdrift.Main --baseline old.txt --write-baseline old.txt ex
+```
+
+When a new finding remains, for example after removing `bye` from `ex/messages_fr.properties`, text output is:
+
+```text
+ex/messages_fr.properties:1: PR002 missing key bye
+1 problem in 1 file (5 suppressed by baseline)
+```
+
+With `--format json`, the suppressed count follows `files` (including when it is zero):
+
+```json
+{"findings":[{"path":"ex/messages_fr.properties","line":1,"rule":"PR002","message":"missing key bye"}],"problems":1,"files":1,"suppressed":5}
+```
+
+With all five findings suppressed, text output is `ok (5 suppressed by baseline)`. JSON output includes the suppressed count after `files`:
+
+```json
+{"findings":[],"problems":0,"files":0,"suppressed":5}
+```
 
 ## Rules
 
@@ -138,7 +200,7 @@ ex/orphan_es.properties:1: PR001 missing base file for orphan
 | --- | --- |
 | 0 | The directory is valid, or `--help` was requested. |
 | 1 | One or more findings were reported. |
-| 2 | Arguments, the directory, a file, or its properties syntax could not be processed. |
+| 2 | Arguments, the directory, a file, its properties syntax, or a baseline file could not be processed. |
 
 ## Development
 
