@@ -33,14 +33,14 @@ mvn -B -q verify
 Run propdrift on exactly one directory containing properties files; optionally select `text` (the default) or `json` output. Replace `path/to/bundles` with your resource directory:
 
 ```text
-java -cp target/classes io.github.gulliby.propdrift.Main [--format text|json] [--baseline FILE] [--write-baseline FILE] path/to/bundles
+java -cp target/classes io.github.gulliby.propdrift.Main [--format text|json] [--locale CODE]... [--baseline FILE] [--write-baseline FILE] path/to/bundles
 ```
 
 Use `--help` to print the usage line:
 
 ```text
 java -cp target/classes io.github.gulliby.propdrift.Main --help
-Usage: propdrift [--format text|json] [--baseline FILE] [--write-baseline FILE] DIR
+Usage: propdrift [--format text|json] [--locale CODE]... [--baseline FILE] [--write-baseline FILE] DIR
 ```
 
 The checker reads regular `.properties` files directly in the directory; it does not recurse into subdirectories. File names are case-sensitive. Locale suffixes such as `_de` and `_pt_BR` associate a file with its base bundle (for example, `messages_de.properties` belongs to `messages.properties`).
@@ -51,9 +51,29 @@ The checker reads regular `.properties` files directly in the directory; it does
 | --- | --- |
 | `DIR` | The directory to check (exactly one). |
 | `--format text\|json` | Output format: `text` (default) or `json`. Also `--format=json`. |
+| `--locale CODE` | Report only the findings in files of this locale, for example `de` or `pt_BR`; repeatable. Also `--locale=CODE`. |
 | `--baseline FILE` | Do not report the findings listed in the baseline file `FILE`. Also `--baseline=FILE`. |
 | `--write-baseline FILE` | Write all current findings to `FILE` as a version 2 baseline and exit 0. Also `--write-baseline=FILE`. |
 | `--help` | Print the usage line. |
+
+### One locale
+
+Use `--locale` when you maintain a single translation. It reports only the findings in the files of the given locale (the suffix of the file name, such as `de` for `messages_de.properties` or `pt_BR` for `messages_pt_BR.properties`) and leaves out the rest, including the findings of base files. For the worked example directory `ex` below:
+
+```text
+java -cp target/classes io.github.gulliby.propdrift.Main --locale de ex
+ex/messages_de.properties:1: PR002 missing key bye
+ex/messages_de.properties:2: PR004 placeholders differ for files: base {0},{1}, locale {0}
+ex/messages_de.properties:3: PR003 extra key extra
+ex/messages_de.properties:4: PR005 duplicate key hello (first defined on line 1)
+4 problems in 1 file
+```
+
+The option can be repeated (`--locale de --locale es` reports both files), and a locale without findings prints `ok`. The counts in the summary, in `--format json` and in `--baseline` and `--write-baseline` are those of the selected findings only. The code must be two lowercase letters, optionally followed by `_` and two uppercase letters; a locale that no file in the directory has is an error (exit 2):
+
+```text
+propdrift: no file for locale "pt_BR"
+```
 
 ### JSON output
 

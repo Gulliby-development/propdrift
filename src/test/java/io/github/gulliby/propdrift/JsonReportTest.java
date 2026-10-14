@@ -165,8 +165,8 @@ class JsonReportTest {
                 "| " + TICK + "--format text\\|json" + TICK
                         + " | Output format: " + TICK + "text" + TICK + " (default) or "
                         + TICK + "json" + TICK + ". Also " + TICK + "--format=json" + TICK + ". |",
-                "java -cp target/classes io.github.gulliby.propdrift.Main [--format text|json] [--baseline FILE] [--write-baseline FILE] path/to/bundles",
-                "Usage: propdrift [--format text|json] [--baseline FILE] [--write-baseline FILE] DIR",
+                "java -cp target/classes io.github.gulliby.propdrift.Main [--format text|json] [--locale CODE]... [--baseline FILE] [--write-baseline FILE] path/to/bundles",
+                "Usage: propdrift [--format text|json] [--locale CODE]... [--baseline FILE] [--write-baseline FILE] DIR",
                 "java -cp target/classes io.github.gulliby.propdrift.Main --help",
                 "### JSON output",
                 "java -cp target/classes io.github.gulliby.propdrift.Main --format json ex",

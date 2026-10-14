@@ -16,10 +16,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /** Command-line orchestration for checking properties bundles. */
 public final class Cli {
+    private static final Pattern LOCALE_CODE = Pattern.compile("[a-z]{2}(?:_[A-Z]{2})?");
+    private static final Pattern LOCALE_SUFFIX = Pattern.compile("^.+_([a-z]{2}(?:_[A-Z]{2})?)$");
+
     private Cli() {
     }
 
@@ -35,7 +40,7 @@ public final class Cli {
         Objects.requireNonNull(err, "err");
 
         if (args.length == 1 && "--help".equals(args[0])) {
-            out.print("Usage: propdrift [--format text|json] [--baseline FILE] [--write-baseline FILE] DIR\n");
+            out.print("Usage: propdrift [--format text|json] [--locale CODE]... [--baseline FILE] [--write-baseline FILE] DIR\n");
             return 0;
         }
         if (args.length == 0) {
@@ -46,6 +51,7 @@ public final class Cli {
         String baselineFile = null;
         String writeBaselineFile = null;
         List<String> directories = new ArrayList<>();
+        List<String> locales = new ArrayList<>();
         for (int index = 0; index < args.length; index++) {
             String arg = args[index];
             if ("--format".equals(arg)) {
@@ -60,6 +66,17 @@ public final class Cli {
                     return reportError(err, "propdrift: --baseline requires a value");
                 }
                 baselineFile = args[++index];
+            } else if ("--locale".equals(arg)) {
+                if (index + 1 >= args.length || args[index + 1].startsWith("-")) {
+                    return reportError(err, "propdrift: --locale requires a value");
+                }
+                locales.add(args[++index]);
+            } else if (arg.startsWith("--locale=")) {
+                String locale = arg.substring("--locale=".length());
+                if (locale.isEmpty()) {
+                    return reportError(err, "propdrift: --locale requires a value");
+                }
+                locales.add(locale);
             } else if (arg.startsWith("--baseline=")) {
                 baselineFile = arg.substring("--baseline=".length());
                 if (baselineFile.isEmpty()) {
@@ -83,6 +100,11 @@ public final class Cli {
         }
         if (!"text".equals(format) && !"json".equals(format)) {
             return reportError(err, "propdrift: invalid --format \"" + format + "\"");
+        }
+        for (String locale : locales) {
+            if (!LOCALE_CODE.matcher(locale).matches()) {
+                return reportError(err, "propdrift: invalid --locale \"" + locale + "\"");
+            }
         }
         if (directories.isEmpty()) {
             return reportError(err, "propdrift: directory required");
@@ -135,7 +157,32 @@ public final class Cli {
             parsedFiles.add(new Bundles.BundleFile(fileName, pathForDisplay, entries));
         }
 
+        if (!locales.isEmpty()) {
+            Set<String> availableLocales = new HashSet<>();
+            for (Bundles.BundleFile parsedFile : parsedFiles) {
+                String locale = localeOf(parsedFile.fileName());
+                if (locale != null) {
+                    availableLocales.add(locale);
+                }
+            }
+            for (String locale : locales) {
+                if (!availableLocales.contains(locale)) {
+                    return reportError(err, "propdrift: no file for locale \"" + locale + "\"");
+                }
+            }
+        }
+  
         List<Finding> findings = new ArrayList<>(Bundles.analyze(parsedFiles));
+        if (!locales.isEmpty()) {
+            Set<String> selectedLocales = new HashSet<>(locales);
+            Set<String> selectedFiles = new HashSet<>();
+            for (Bundles.BundleFile parsedFile : parsedFiles) {
+                if (selectedLocales.contains(localeOf(parsedFile.fileName()))) {
+                    selectedFiles.add(parsedFile.displayPath());
+                }
+            }
+            findings.removeIf(finding -> !selectedFiles.contains(finding.displayPath()));
+        }
         findings.sort(Comparator.comparing(Finding::displayPath)
                 .thenComparingInt(Finding::line)
                 .thenComparing(Finding::rule));
@@ -223,6 +270,12 @@ public final class Cli {
      * <p>Backslashes are normalized to slashes and trailing slashes are
      * removed. A directory represented by {@code .} omits the directory prefix.</p>
      */
+    private static String localeOf(String fileName) {
+        String stem = fileName.substring(0, fileName.length() - ".properties".length());
+        Matcher matcher = LOCALE_SUFFIX.matcher(stem);
+        return matcher.matches() ? matcher.group(1) : null;
+    }
+
     static String displayPath(String dir, String fileName) {
         String normalized = Objects.requireNonNull(dir, "dir").replace('\\', '/');
         while (normalized.endsWith("/")) {
