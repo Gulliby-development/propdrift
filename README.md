@@ -33,14 +33,14 @@ mvn -B -q verify
 Run propdrift on exactly one directory containing properties files; optionally select `text` (the default) or `json` output. Replace `path/to/bundles` with your resource directory:
 
 ```text
-java -cp target/classes io.github.gulliby.propdrift.Main [--format text|json] [--locale CODE]... [--baseline FILE] [--write-baseline FILE] path/to/bundles
+java -cp target/classes io.github.gulliby.propdrift.Main [--format text|json] [--locale CODE]... [--rule CODE]... [--baseline FILE] [--write-baseline FILE] path/to/bundles
 ```
 
 Use `--help` to print the usage line:
 
 ```text
 java -cp target/classes io.github.gulliby.propdrift.Main --help
-Usage: propdrift [--format text|json] [--locale CODE]... [--baseline FILE] [--write-baseline FILE] DIR
+Usage: propdrift [--format text|json] [--locale CODE]... [--rule CODE]... [--baseline FILE] [--write-baseline FILE] DIR
 ```
 
 The checker reads regular `.properties` files directly in the directory; it does not recurse into subdirectories. File names are case-sensitive. Locale suffixes such as `_de` and `_pt_BR` associate a file with its base bundle (for example, `messages_de.properties` belongs to `messages.properties`).
@@ -52,6 +52,7 @@ The checker reads regular `.properties` files directly in the directory; it does
 | `DIR` | The directory to check (exactly one). |
 | `--format text\|json` | Output format: `text` (default) or `json`. Also `--format=json`. |
 | `--locale CODE` | Report only the findings in files of this locale, for example `de` or `pt_BR`; repeatable. Also `--locale=CODE`. |
+| `--rule CODE` | Report only the findings of this rule, one of `PR001` to `PR005`; repeatable. Also `--rule=CODE`. |
 | `--baseline FILE` | Do not report the findings listed in the baseline file `FILE`. Also `--baseline=FILE`. |
 | `--write-baseline FILE` | Write all current findings to `FILE` as a version 2 baseline and exit 0. Also `--write-baseline=FILE`. |
 | `--help` | Print the usage line. |
@@ -74,6 +75,21 @@ The option can be repeated (`--locale de --locale es` reports both files), and a
 ```text
 propdrift: no file for locale "pt_BR"
 ```
+
+### One rule
+
+Use `--rule` to look at one kind of finding, for example only the placeholder mismatches before a release. Only the findings of the given rules are reported, counted, written by `--write-baseline` and matched by `--baseline`; the others are left out and are not counted as suppressed. The option can be repeated and combines with `--locale`. For the worked example directory `ex` below:
+
+```text
+propdrift --rule PR004 ex
+```
+
+```text
+ex/messages_de.properties:2: PR004 placeholders differ for files: base {0},{1}, locale {0}
+1 problem in 1 file
+```
+
+A code that is not one of the five rules, also in lower case, is an error with exit code 2 and the message `propdrift: invalid --rule "pr004"`.
 
 ### JSON output
 
