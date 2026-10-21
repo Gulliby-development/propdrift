@@ -150,9 +150,9 @@ class LocaleTest {
         String readme = Files.readString(Path.of("README.md"), StandardCharsets.UTF_8);
 
         assertTrue(readme.contains("java -cp target/classes io.github.gulliby.propdrift.Main "
-                + "[--format text|json] [--locale CODE]... [--baseline FILE] "
+                + "[--format text|json] [--locale CODE]... [--rule CODE]... [--baseline FILE] "
                 + "[--write-baseline FILE] path/to/bundles"));
-        assertTrue(readme.contains("Usage: propdrift [--format text|json] [--locale CODE]... "
+        assertTrue(readme.contains("Usage: propdrift [--format text|json] [--locale CODE]... [--rule CODE]... "
                 + "[--baseline FILE] [--write-baseline FILE] DIR"));
         assertTrue(readme.contains("| `--locale CODE` | Report only the findings in files of this locale, "
                 + "for example `de` or `pt_BR`; repeatable. Also `--locale=CODE`. |"));

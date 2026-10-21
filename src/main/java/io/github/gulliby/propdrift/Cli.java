@@ -13,6 +13,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -40,7 +41,7 @@ public final class Cli {
         Objects.requireNonNull(err, "err");
 
         if (args.length == 1 && "--help".equals(args[0])) {
-            out.print("Usage: propdrift [--format text|json] [--locale CODE]... [--baseline FILE] [--write-baseline FILE] DIR\n");
+            out.print("Usage: propdrift [--format text|json] [--locale CODE]... [--rule CODE]... [--baseline FILE] [--write-baseline FILE] DIR\n");
             return 0;
         }
         if (args.length == 0) {
@@ -52,6 +53,7 @@ public final class Cli {
         String writeBaselineFile = null;
         List<String> directories = new ArrayList<>();
         List<String> locales = new ArrayList<>();
+        Set<String> rules = new LinkedHashSet<>();
         for (int index = 0; index < args.length; index++) {
             String arg = args[index];
             if ("--format".equals(arg)) {
@@ -77,6 +79,17 @@ public final class Cli {
                     return reportError(err, "propdrift: --locale requires a value");
                 }
                 locales.add(locale);
+            } else if ("--rule".equals(arg)) {
+                if (index + 1 >= args.length || args[index + 1].startsWith("-")) {
+                    return reportError(err, "propdrift: --rule requires a value");
+                }
+                rules.add(args[++index]);
+            } else if (arg.startsWith("--rule=")) {
+                String rule = arg.substring("--rule=".length());
+                if (rule.isEmpty()) {
+                    return reportError(err, "propdrift: --rule requires a value");
+                }
+                rules.add(rule);
             } else if (arg.startsWith("--baseline=")) {
                 baselineFile = arg.substring("--baseline=".length());
                 if (baselineFile.isEmpty()) {
@@ -104,6 +117,11 @@ public final class Cli {
         for (String locale : locales) {
             if (!LOCALE_CODE.matcher(locale).matches()) {
                 return reportError(err, "propdrift: invalid --locale \"" + locale + "\"");
+            }
+        }
+        for (String rule : rules) {
+            if (!RuleFilter.isRule(rule)) {
+                return reportError(err, "propdrift: invalid --rule \"" + rule + "\"");
             }
         }
         if (directories.isEmpty()) {
@@ -183,6 +201,7 @@ public final class Cli {
             }
             findings.removeIf(finding -> !selectedFiles.contains(finding.displayPath()));
         }
+        findings = new ArrayList<>(RuleFilter.keep(findings, rules));
         findings.sort(Comparator.comparing(Finding::displayPath)
                 .thenComparingInt(Finding::line)
                 .thenComparing(Finding::rule));
