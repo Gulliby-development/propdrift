@@ -33,14 +33,14 @@ mvn -B -q verify
 Run propdrift on exactly one directory containing properties files; optionally select `text` (the default) or `json` output. Replace `path/to/bundles` with your resource directory:
 
 ```text
-java -cp target/classes io.github.gulliby.propdrift.Main [--format text|json] [--locale CODE]... [--rule CODE]... [--baseline FILE] [--write-baseline FILE] path/to/bundles
+java -cp target/classes io.github.gulliby.propdrift.Main [--format text|json] [--locale CODE]... [--rule CODE]... [--baseline FILE] [--write-baseline FILE] [--quiet] path/to/bundles
 ```
 
 Use `--help` to print the usage line:
 
 ```text
 java -cp target/classes io.github.gulliby.propdrift.Main --help
-Usage: propdrift [--format text|json] [--locale CODE]... [--rule CODE]... [--baseline FILE] [--write-baseline FILE] DIR
+Usage: propdrift [--format text|json] [--locale CODE]... [--rule CODE]... [--baseline FILE] [--write-baseline FILE] [--quiet] DIR
 ```
 
 The checker reads regular `.properties` files directly in the directory; it does not recurse into subdirectories. File names are case-sensitive. Locale suffixes such as `_de` and `_pt_BR` associate a file with its base bundle (for example, `messages_de.properties` belongs to `messages.properties`).
@@ -55,6 +55,7 @@ The checker reads regular `.properties` files directly in the directory; it does
 | `--rule CODE` | Report only the findings of this rule, one of `PR001` to `PR005`; repeatable. Also `--rule=CODE`. |
 | `--baseline FILE` | Do not report the findings listed in the baseline file `FILE`. Also `--baseline=FILE`. |
 | `--write-baseline FILE` | Write all current findings to `FILE` as a version 2 baseline and exit 0. Also `--write-baseline=FILE`. |
+| `--quiet` | Print only the summary line (`ok` or the problem count), not the findings; text output only. |
 | `--help` | Print the usage line. |
 
 ### One locale
@@ -90,6 +91,20 @@ ex/messages_de.properties:2: PR004 placeholders differ for files: base {0},{1}, 
 ```
 
 A code that is not one of the five rules, also in lower case, is an error with exit code 2 and the message `propdrift: invalid --rule "pr004"`.
+
+### Quiet
+
+Use `--quiet` in a script that only needs the verdict and the count. In the text format the findings are left out and the summary line stays, with the baseline note when `--baseline` is given. For the worked example directory `ex` below:
+
+```text
+propdrift --quiet ex
+```
+
+```text
+5 problems in 2 files
+```
+
+The exit code is the same as without the option, and `--write-baseline` still prints its `wrote` line. The flag takes no value (`--quiet=1` is an unknown option), and it cannot be combined with `--format json`: that is an error with exit code 2 and the message `propdrift: --quiet cannot be used with --format json`.
 
 ### JSON output
 
