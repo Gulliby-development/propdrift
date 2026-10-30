@@ -151,9 +151,9 @@ class LocaleTest {
 
         assertTrue(readme.contains("java -cp target/classes io.github.gulliby.propdrift.Main "
                 + "[--format text|json] [--locale CODE]... [--rule CODE]... [--baseline FILE] "
-                + "[--write-baseline FILE] path/to/bundles"));
+                + "[--write-baseline FILE] [--quiet] path/to/bundles"));
         assertTrue(readme.contains("Usage: propdrift [--format text|json] [--locale CODE]... [--rule CODE]... "
-                + "[--baseline FILE] [--write-baseline FILE] DIR"));
+                + "[--baseline FILE] [--write-baseline FILE] [--quiet] DIR"));
         assertTrue(readme.contains("| `--locale CODE` | Report only the findings in files of this locale, "
                 + "for example `de` or `pt_BR`; repeatable. Also `--locale=CODE`. |"));
 

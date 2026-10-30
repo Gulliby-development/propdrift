@@ -41,7 +41,7 @@ public final class Cli {
         Objects.requireNonNull(err, "err");
 
         if (args.length == 1 && "--help".equals(args[0])) {
-            out.print("Usage: propdrift [--format text|json] [--locale CODE]... [--rule CODE]... [--baseline FILE] [--write-baseline FILE] DIR\n");
+            out.print("Usage: propdrift [--format text|json] [--locale CODE]... [--rule CODE]... [--baseline FILE] [--write-baseline FILE] [--quiet] DIR\n");
             return 0;
         }
         if (args.length == 0) {
@@ -51,6 +51,7 @@ public final class Cli {
         String format = "text";
         String baselineFile = null;
         String writeBaselineFile = null;
+        boolean quiet = false;
         List<String> directories = new ArrayList<>();
         List<String> locales = new ArrayList<>();
         Set<String> rules = new LinkedHashSet<>();
@@ -105,6 +106,8 @@ public final class Cli {
                 if (writeBaselineFile.isEmpty()) {
                     return reportError(err, "propdrift: --write-baseline requires a value");
                 }
+            } else if ("--quiet".equals(arg)) {
+                quiet = true;
             } else if (arg.startsWith("-")) {
                 return reportError(err, "propdrift: unknown option \"" + arg + "\"");
             } else {
@@ -113,6 +116,9 @@ public final class Cli {
         }
         if (!"text".equals(format) && !"json".equals(format)) {
             return reportError(err, "propdrift: invalid --format \"" + format + "\"");
+        }
+        if (quiet && "json".equals(format)) {
+            return reportError(err, "propdrift: --quiet cannot be used with --format json");
         }
         for (String locale : locales) {
             if (!LOCALE_CODE.matcher(locale).matches()) {
@@ -267,9 +273,11 @@ public final class Cli {
             return 0;
         }
 
-        for (Finding finding : reportedFindings) {
-            out.print(finding.format());
-            out.print('\n');
+        if (!quiet) {
+            for (Finding finding : reportedFindings) {
+                out.print(finding.format());
+                out.print('\n');
+            }
         }
 
         int problemCount = reportedFindings.size();
